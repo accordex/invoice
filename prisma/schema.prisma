@@ -1,0 +1,491 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================================
+// PRIVILEGE ENGINE
+// =========================================================
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  fullName       String
+  passwordHash   String
+  isActive       Boolean  @default(true)
+  isSuperAdmin   Boolean  @default(false)
+  teamId         String?
+  branchId       String?
+  departmentId   String?
+  managerId      String?
+  createdAt      DateTime @default(now())
+  roles          UserRole[]
+  overrides      UserPrivilegeOverride[]
+  approvalsRaised ApprovalRequest[] @relation("Requester")
+}
+
+model Team {
+  id       String @id @default(cuid())
+  name     String
+  branchId String?
+}
+
+model Branch {
+  id   String @id @default(cuid())
+  name String
+}
+
+model Department {
+  id   String @id @default(cuid())
+  name String
+}
+
+model MenuItem {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  name      String
+  icon      String?
+  parentId  String?
+  parent    MenuItem?  @relation("MenuTree", fields: [parentId], references: [id])
+  children  MenuItem[] @relation("MenuTree")
+  route     String?
+  sortOrder Int        @default(0)
+}
+
+model Module {
+  id          String                @id @default(cuid())
+  code        String                @unique
+  name        String
+  icon        String?
+  sortOrder   Int                   @default(0)
+  forms       Form[]
+  actions     ActionDef[]
+  bulkActions BulkActionDef[]
+  transitions StatusTransitionDef[]
+  scopes      RecordScopeDef[]
+  listColumns ListColumnDef[]
+  listFilters ListFilterDef[]
+}
+
+model Form {
+  id        String    @id @default(cuid())
+  moduleId  String
+  module    Module    @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  sortOrder Int       @default(0)
+  tabs      Tab[]
+  sections  Section[]
+  buttons   Button[]
+
+  @@unique([moduleId, code])
+}
+
+model Tab {
+  id        String    @id @default(cuid())
+  formId    String
+  form      Form      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  sortOrder Int       @default(0)
+  sections  Section[]
+
+  @@unique([formId, code])
+}
+
+model Section {
+  id        String  @id @default(cuid())
+  formId    String
+  form      Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  tabId     String?
+  tab       Tab?    @relation(fields: [tabId], references: [id])
+  code      String
+  name      String
+  sortOrder Int     @default(0)
+  fields    Field[]
+
+  @@unique([formId, code])
+}
+
+model Field {
+  id                 String  @id @default(cuid())
+  sectionId          String
+  section            Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  code               String
+  name               String
+  dataType           String
+  defaultRequired    Boolean @default(false)
+  defaultMaskPattern String?
+  isPii              Boolean @default(false)
+  sortOrder          Int     @default(0)
+
+  @@unique([sectionId, code])
+}
+
+model Button {
+  id        String @id @default(cuid())
+  formId    String
+  form      Form   @relation(fields: [formId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  variant   String @default("default")
+  sortOrder Int    @default(0)
+
+  @@unique([formId, code])
+}
+
+model ActionDef {
+  id         String @id @default(cuid())
+  moduleId   String
+  module     Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  code       String
+  name       String
+  isHighRisk Boolean @default(false)
+
+  @@unique([moduleId, code])
+}
+
+model BulkActionDef {
+  id         String @id @default(cuid())
+  moduleId   String
+  module     Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  code       String
+  name       String
+  isHighRisk Boolean @default(true)
+
+  @@unique([moduleId, code])
+}
+
+model StatusTransitionDef {
+  id         String @id @default(cuid())
+  moduleId   String
+  module     Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  code       String
+  name       String
+  fromStatus String
+  toStatus   String
+
+  @@unique([moduleId, code])
+}
+
+model RecordScopeDef {
+  id              String @id @default(cuid())
+  moduleId        String
+  module          Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  code            String @default("DEFAULT")
+  name            String
+  ownerField      String?
+  teamField       String?
+  branchField     String?
+  departmentField String?
+}
+
+model ListColumnDef {
+  id                 String @id @default(cuid())
+  moduleId           String
+  module             Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  code               String
+  name               String
+  fieldCode          String?
+  defaultMaskPattern String?
+  sortOrder          Int    @default(0)
+
+  @@unique([moduleId, code])
+}
+
+model ListFilterDef {
+  id        String @id @default(cuid())
+  moduleId  String
+  module    Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  sortOrder Int    @default(0)
+
+  @@unique([moduleId, code])
+}
+
+model ReportDef {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+  category    String?
+}
+
+model DashboardWidgetDef {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+}
+
+model Role {
+  id           String               @id @default(cuid())
+  code         String               @unique
+  name         String
+  description  String?
+  isSystem     Boolean              @default(false)
+  parentRoleId String?
+  parentRole   Role?                @relation("RoleHierarchy", fields: [parentRoleId], references: [id])
+  childRoles   Role[]               @relation("RoleHierarchy")
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  grants       RolePrivilegeGrant[]
+  userRoles    UserRole[]
+}
+
+model RolePrivilegeGrant {
+  id            String    @id @default(cuid())
+  roleId        String
+  role          Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  targetLevel   String
+  targetId      String
+  mode          String
+  maskPattern   String?
+  validFrom     DateTime?
+  validUntil    DateTime?
+  conditionExpr String?
+  createdAt     DateTime  @default(now())
+  createdBy     String
+
+  @@unique([roleId, targetLevel, targetId])
+  @@index([roleId, targetLevel])
+}
+
+model UserRole {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId     String
+  role       Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  validFrom  DateTime?
+  validUntil DateTime?
+  assignedAt DateTime  @default(now())
+  assignedBy String
+
+  @@unique([userId, roleId])
+}
+
+model UserPrivilegeOverride {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetLevel String
+  targetId    String
+  mode        String
+  maskPattern String?
+  validFrom   DateTime?
+  validUntil  DateTime?
+  reason      String
+  createdAt   DateTime  @default(now())
+  createdBy   String
+
+  @@index([userId, targetLevel])
+}
+
+model PrivilegeTemplate {
+  id          String                  @id @default(cuid())
+  code        String                  @unique
+  name        String
+  description String?
+  category    String?
+  isSystem    Boolean                 @default(false)
+  items       PrivilegeTemplateItem[]
+  createdAt   DateTime                @default(now())
+}
+
+model PrivilegeTemplateItem {
+  id          String            @id @default(cuid())
+  templateId  String
+  template    PrivilegeTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  targetLevel String
+  targetId    String
+  mode        String
+  maskPattern String?
+}
+
+model ApprovalRequest {
+  id           String    @id @default(cuid())
+  requesterId  String
+  requester    User      @relation("Requester", fields: [requesterId], references: [id])
+  targetLevel  String
+  targetId     String
+  recordType   String?
+  recordId     String?
+  payload      Json?
+  status       String    @default("PENDING")
+  approverId   String?
+  approverNote String?
+  requestedAt  DateTime  @default(now())
+  resolvedAt   DateTime?
+}
+
+model PrivilegeAuditLog {
+  id             String   @id @default(cuid())
+  actorUserId    String
+  action         String
+  affectedRoleId String?
+  affectedUserId String?
+  targetLevel    String?
+  targetId       String?
+  oldMode        String?
+  newMode        String?
+  oldMask        String?
+  newMask        String?
+  reason         String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorUserId])
+  @@index([affectedUserId])
+}
+
+model EffectivePrivilege {
+  id          String   @id @default(cuid())
+  userId      String
+  targetLevel String
+  targetId    String
+  mode        String
+  maskPattern String?
+  computedAt  DateTime @default(now())
+
+  @@unique([userId, targetLevel, targetId])
+  @@index([userId])
+}
+
+// =========================================================
+// INVOICE DOMAIN
+// =========================================================
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  logoUrl         String?
+  email           String
+  phone           String
+  gstin           String?
+  pan             String?
+  addressLine1    String
+  addressLine2    String?
+  city            String
+  state           String
+  pincode         String
+  country         String   @default("India")
+  defaultCurrency String   @default("INR")
+  bankName        String?
+  accountNumber   String?
+  ifsc            String?
+  updatedAt       DateTime @updatedAt
+}
+
+model Customer {
+  id              String    @id @default(cuid())
+  name            String
+  type            String
+  email           String
+  phone           String
+  gstin           String?
+  billingAddress  String
+  shippingAddress String?
+  city            String
+  state           String
+  pincode         String
+  notes           String?
+  isActive        Boolean   @default(true)
+  createdById     String
+  teamId          String?
+  branchId        String?
+  departmentId    String?
+  invoices        Invoice[]
+  createdAt       DateTime  @default(now())
+
+  @@index([name])
+  @@index([createdById])
+  @@index([teamId])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  type         String
+  sku          String?  @unique
+  description  String?
+  hsnSac       String?
+  unit         String
+  sellingPrice Decimal  @db.Decimal(12, 2)
+  taxRate      Int
+  category     String?
+  isActive     Boolean  @default(true)
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  @@index([name])
+}
+
+model Invoice {
+  id              String            @id @default(cuid())
+  invoiceNumber   String            @unique
+  invoiceDate     DateTime
+  dueDate         DateTime
+  referenceNo     String?
+  paymentTerms    String
+  customerId      String
+  customer        Customer          @relation(fields: [customerId], references: [id])
+  billingAddress  String
+  shippingAddress String?
+  lineItems       InvoiceLineItem[]
+
+  subtotal        Decimal @db.Decimal(14, 2)
+  totalDiscount   Decimal @db.Decimal(14, 2)
+  taxableAmount   Decimal @db.Decimal(14, 2)
+  cgst            Decimal @db.Decimal(14, 2) @default(0)
+  sgst            Decimal @db.Decimal(14, 2) @default(0)
+  igst            Decimal @db.Decimal(14, 2) @default(0)
+  shippingCharges Decimal @db.Decimal(14, 2) @default(0)
+  roundOff        Decimal @db.Decimal(14, 2) @default(0)
+  grandTotal      Decimal @db.Decimal(14, 2)
+  amountInWords   String
+
+  notes         String?
+  terms         String?
+  status        String  @default("DRAFT")
+  attachmentUrl String?
+
+  createdById  String
+  teamId       String?
+  branchId     String?
+  departmentId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, invoiceDate])
+  @@index([createdById])
+  @@index([customerId])
+}
+
+model InvoiceLineItem {
+  id           String  @id @default(cuid())
+  invoiceId    String
+  invoice      Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId    String?
+  itemName     String
+  description  String?
+  hsnSac       String?
+  quantity     Decimal @db.Decimal(12, 3)
+  unit         String
+  rate         Decimal @db.Decimal(12, 2)
+  discountPct  Decimal @db.Decimal(5, 2) @default(0)
+  taxPct       Int
+  gross        Decimal @db.Decimal(14, 2)
+  discountAmt  Decimal @db.Decimal(14, 2)
+  taxableValue Decimal @db.Decimal(14, 2)
+  taxAmt       Decimal @db.Decimal(14, 2)
+  lineTotal    Decimal @db.Decimal(14, 2)
+  sortOrder    Int     @default(0)
+}

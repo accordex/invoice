@@ -1,0 +1,21 @@
+{
+  "name": "invoice-generator",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "db:push": "pnpm --filter @invoice/api db:push",
+    "db:seed": "pnpm --filter @invoice/api db:seed",
+    "db:studio": "pnpm --filter @invoice/api db:studio",
+    "db:generate": "prisma generate --schema prisma/schema.prisma"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "prisma": "^6.3.1"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.1"
+  }
+}
