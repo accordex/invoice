@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { maskValue } from '@invoice/shared/privilege';
 import { resolveOne, resolveForRecord } from '../services/privilege/resolver.js';
 import { prisma } from '../lib/prisma.js';
+import { paramId } from '../lib/params.js';
 
 export const requireAction = (actionCode: string) =>
   async (req: Request, res: Response, next: NextFunction) => {
@@ -44,7 +45,7 @@ export const requireTransition = (transitionCode: string) =>
           targetLevel: 'STATUS_TRANSITION',
           targetId: transitionCode,
           recordType: 'INVOICE',
-          recordId: req.params.id,
+          recordId: paramId(req.params.id),
           payload: req.body,
         },
       });

@@ -1,4 +1,5 @@
-import 'dotenv/config';
+import './lib/env.js';
+import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
 import { authRouter } from './routes/auth.js';
@@ -27,7 +28,20 @@ app.use('/api/dashboard', dashboardRouter);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);
-  res.status(500).json({ error: 'Internal server error' });
+  if (res.headersSent) return;
+  const message =
+    err.name === 'PrismaClientInitializationError'
+      ? 'Database connection failed. Check DATABASE_URL in .env'
+      : 'Internal server error';
+  res.status(500).json({ error: message });
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
 });
 
 app.listen(port, () => {

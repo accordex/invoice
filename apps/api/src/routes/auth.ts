@@ -4,10 +4,13 @@ import { loginSchema } from '@invoice/shared';
 import { prisma } from '../lib/prisma.js';
 import { authenticate, signToken } from '../middleware/auth.js';
 import { resolveAllForUser } from '../services/privilege/resolver.js';
+import { asyncHandler } from '../lib/asyncHandler.js';
 
 export const authRouter = Router();
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post(
+  '/login',
+  asyncHandler(async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -35,9 +38,13 @@ authRouter.post('/login', async (req, res) => {
       isSuperAdmin: user.isSuperAdmin,
     },
   });
-});
+  })
+);
 
-authRouter.get('/me', authenticate, async (req, res) => {
+authRouter.get(
+  '/me',
+  authenticate,
+  asyncHandler(async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.auth.userId },
     include: {
@@ -57,9 +64,13 @@ authRouter.get('/me', authenticate, async (req, res) => {
     roles: user.roles.map((r) => r.role),
     previewMode: !!req.auth.previewAsUserId,
   });
-});
+  })
+);
 
-authRouter.get('/me/privileges', authenticate, async (req, res) => {
+authRouter.get(
+  '/me/privileges',
+  authenticate,
+  asyncHandler(async (req, res) => {
   const privileges = await prisma.effectivePrivilege.findMany({
     where: { userId: req.auth.userId },
   });
@@ -77,4 +88,5 @@ authRouter.get('/me/privileges', authenticate, async (req, res) => {
     select: { id: true, code: true, name: true, route: true, icon: true, parentId: true, sortOrder: true },
   });
   res.json({ privileges: map, menuItems });
-});
+  })
+);

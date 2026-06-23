@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { productSchema } from '@invoice/shared';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
+import { paramId } from '../lib/params.js';
 import {
   applyRecordScope,
   buildScopeWhere,
@@ -61,7 +62,7 @@ productsRouter.post('/', requireAction('PRODUCT.CREATE'), async (req, res) => {
 });
 
 productsRouter.get('/:id', requireAction('PRODUCT.VIEW'), async (req, res) => {
-  const product = await prisma.product.findUnique({ where: { id: req.params.id } });
+  const product = await prisma.product.findUnique({ where: { id: paramId(req.params.id) } });
   if (!product) return res.status(404).json({ error: 'Not found' });
   res.json(product);
 });
@@ -73,14 +74,14 @@ productsRouter.patch('/:id', requireAction('PRODUCT.EDIT'), async (req, res) => 
   }
 
   const product = await prisma.product.update({
-    where: { id: req.params.id },
+    where: { id: paramId(req.params.id) },
     data: parsed.data,
   });
   res.json(product);
 });
 
 productsRouter.delete('/:id', requireAction('PRODUCT.DELETE'), async (req, res) => {
-  await prisma.product.delete({ where: { id: req.params.id } });
+  await prisma.product.delete({ where: { id: paramId(req.params.id) } });
   res.status(204).send();
 });
 

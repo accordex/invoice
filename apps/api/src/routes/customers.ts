@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { customerSchema } from '@invoice/shared';
+import { customerSchema, customerUpdateSchema } from '@invoice/shared';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
+import { paramId } from '../lib/params.js';
 import {
   applyRecordScope,
   buildScopeWhere,
@@ -75,7 +76,7 @@ customersRouter.get(
   requireAction('CUSTOMER.VIEW'),
   scrubResponseFields('CUSTOMER_FORM'),
   async (req, res) => {
-    const customer = await prisma.customer.findUnique({ where: { id: req.params.id } });
+    const customer = await prisma.customer.findUnique({ where: { id: paramId(req.params.id) } });
     if (!customer) return res.status(404).json({ error: 'Not found' });
     res.json(customer);
   }
@@ -86,13 +87,13 @@ customersRouter.patch(
   requireAction('CUSTOMER.EDIT'),
   scrubRequestFields('CUSTOMER_FORM'),
   async (req, res) => {
-    const parsed = customerSchema.partial().safeParse(req.body);
+    const parsed = customerUpdateSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
     const customer = await prisma.customer.update({
-      where: { id: req.params.id },
+      where: { id: paramId(req.params.id) },
       data: parsed.data,
     });
     res.json(customer);
@@ -100,7 +101,7 @@ customersRouter.patch(
 );
 
 customersRouter.delete('/:id', requireAction('CUSTOMER.DELETE'), async (req, res) => {
-  await prisma.customer.delete({ where: { id: req.params.id } });
+  await prisma.customer.delete({ where: { id: paramId(req.params.id) } });
   res.status(204).send();
 });
 

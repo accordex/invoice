@@ -1,8 +1,10 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { calcInvoice, calcLine, getNextInvoiceNumber } from '@invoice/shared/calc';
 import { invoiceSchema } from '@invoice/shared';
 import { prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
+import { paramId } from '../lib/params.js';
 import {
   applyRecordScope,
   buildScopeWhere,
@@ -197,7 +199,7 @@ invoicesRouter.post('/', requireAction('INVOICE.CREATE'), async (req, res) => {
 
 invoicesRouter.get('/:id', requireAction('INVOICE.VIEW'), async (req, res) => {
   const invoice = await prisma.invoice.findUnique({
-    where: { id: req.params.id },
+    where: { id: paramId(req.params.id) },
     include: { lineItems: { orderBy: { sortOrder: 'asc' } }, customer: true },
   });
   if (!invoice) return res.status(404).json({ error: 'Not found' });
@@ -211,13 +213,13 @@ invoicesRouter.patch('/:id', requireAction('INVOICE.EDIT'), async (req, res) => 
   }
 
   const existing = await prisma.invoice.findUnique({
-    where: { id: req.params.id },
+    where: { id: paramId(req.params.id) },
     include: { lineItems: true },
   });
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
   if (parsed.data.lineItems) {
-    await prisma.invoiceLineItem.deleteMany({ where: { invoiceId: req.params.id } });
+    await prisma.invoiceLineItem.deleteMany({ where: { invoiceId: paramId(req.params.id) } });
     const fullInput = invoiceSchema.parse({ ...existing, ...parsed.data, lineItems: parsed.data.lineItems });
     const data = await buildInvoiceData(
       fullInput,
@@ -228,29 +230,34 @@ invoicesRouter.patch('/:id', requireAction('INVOICE.EDIT'), async (req, res) => 
     );
     const { lineItems, ...invoiceData } = data;
     const invoice = await prisma.invoice.update({
-      where: { id: req.params.id },
+      where: { id: paramId(req.params.id) },
       data: { ...invoiceData, lineItems },
       include: { lineItems: true, customer: true },
     });
     return res.json(invoice);
   }
 
+  const { customerId: _customerId, lineItems: _lineItems, ...updateFields } = parsed.data;
   const invoice = await prisma.invoice.update({
-    where: { id: req.params.id },
-    data: parsed.data,
+    where: { id: paramId(req.params.id) },
+    data: {
+      ...updateFields,
+      invoiceDate: parsed.data.invoiceDate ? new Date(parsed.data.invoiceDate) : undefined,
+      dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : undefined,
+    } as Prisma.InvoiceUpdateInput,
     include: { lineItems: true, customer: true },
   });
   res.json(invoice);
 });
 
 invoicesRouter.delete('/:id', requireAction('INVOICE.DELETE'), async (req, res) => {
-  await prisma.invoice.delete({ where: { id: req.params.id } });
+  await prisma.invoice.delete({ where: { id: paramId(req.params.id) } });
   res.status(204).send();
 });
 
 invoicesRouter.post('/:id/duplicate', requireAction('INVOICE.DUPLICATE'), async (req, res) => {
   const source = await prisma.invoice.findUnique({
-    where: { id: req.params.id },
+    where: { id: paramId(req.params.id) },
     include: { lineItems: true },
   });
   if (!source) return res.status(404).json({ error: 'Not found' });
@@ -292,7 +299,7 @@ invoicesRouter.post('/:id/transition', async (req, res) => {
             targetLevel: 'STATUS_TRANSITION',
             targetId: transitionCode,
             recordType: 'INVOICE',
-            recordId: req.params.id,
+            recordId: paramId(req.params.id),
             payload: req.body,
           },
         });
@@ -305,14 +312,14 @@ invoicesRouter.post('/:id/transition', async (req, res) => {
     });
     if (!transition) return res.status(400).json({ error: 'Invalid transition' });
 
-    const invoice = await prisma.invoice.findUnique({ where: { id: req.params.id } });
+    const invoice = await prisma.invoice.findUnique({ where: { id: paramId(req.params.id) } });
     if (!invoice) return res.status(404).json({ error: 'Not found' });
     if (invoice.status !== transition.fromStatus) {
       return res.status(400).json({ error: 'Invalid status for transition' });
     }
 
     const updated = await prisma.invoice.update({
-      where: { id: req.params.id },
+      where: { id: paramId(req.params.id) },
       data: { status: transition.toStatus },
       include: { lineItems: true, customer: true },
     });
@@ -321,7 +328,7 @@ invoicesRouter.post('/:id/transition', async (req, res) => {
 
 invoicesRouter.get('/:id/pdf', requireAction('INVOICE.DOWNLOAD_PDF'), async (req, res) => {
   const invoice = await prisma.invoice.findUnique({
-    where: { id: req.params.id },
+    where: { id: paramId(req.params.id) },
     include: { lineItems: true, customer: true },
   });
   if (!invoice) return res.status(404).json({ error: 'Not found' });

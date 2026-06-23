@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import '../lib/env.js';
 import bcrypt from 'bcryptjs';
 import { calcInvoice, calcLine } from '@invoice/shared/calc';
 import { prisma } from '../lib/prisma.js';
