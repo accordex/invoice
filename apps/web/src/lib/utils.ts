@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const API_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_URL ?? '');
+export const API_URL = import.meta.env.VITE_API_URL || '';
 
 export async function api<T>(
   path: string,
