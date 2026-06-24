@@ -23,7 +23,7 @@ jobs:
             cd /var/www/invoice.softmerce.com/invoice
             git pull origin dev
             corepack enable
+            pm2 stop invoice-api || true
             pnpm install --frozen-lockfile
-            pnpm db:generate
-            pnpm build
+            pnpm build:prod
             pm2 restart invoice-api || pm2 start apps/api/dist/index.js --name invoice-api
