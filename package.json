@@ -1,14 +1,25 @@
 {
   "name": "invoice-generator",
   "private": true,
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
     "start": "pnpm dev",
+    "prebuild": "pnpm db:generate",
     "build": "pnpm -r build",
     "db:push": "pnpm --filter @invoice/api db:push",
     "db:seed": "pnpm --filter @invoice/api db:seed",
     "db:studio": "pnpm --filter @invoice/api db:studio",
     "db:generate": "prisma generate --schema prisma/schema.prisma"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild",
+      "core-js"
+    ]
   },
   "engines": {
     "node": ">=20"
